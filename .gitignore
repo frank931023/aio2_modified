@@ -17,6 +17,7 @@ py_scripts/*_resume.py
 *showMemo*
 *singlePatch*
 utils/epoch_detect
+Massachusetts
 
 calculate_psd.py
 dice_score_weight.py

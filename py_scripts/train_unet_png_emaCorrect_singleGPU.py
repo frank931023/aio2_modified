@@ -24,6 +24,7 @@ from utils.dice_score import dice_loss
 import utils.self_ensembling as use
 import utils.early_learning_detection as eld
 import utils.evaluates as evl
+import utils.mislabel_detection as mld  # 錯標檢測模組
 
 
 def get_args():
@@ -101,6 +102,18 @@ def get_args():
     parser.add_argument("--print_to_log", action="store_false", help="If true, directs std-out to log file")
     parser.add_argument("--batch_to_wandb", action="store_true", help="If true, log batch-wise training results to wandb")
     parser.add_argument('--seed', type=int, default=42)
+    
+    # 錯標檢測相關參數
+    parser.add_argument('--enable_mislabel_detection', action='store_true', 
+                        help='是否啟用錯標檢測功能')
+    parser.add_argument('--detection_confidence_threshold', type=float, default=0.8,
+                        help='錯標檢測的信心度閾值')
+    parser.add_argument('--detection_agreement_threshold', type=float, default=0.7,
+                        help='教師學生模型一致性閾值')
+    parser.add_argument('--detection_save_interval', type=int, default=5,
+                        help='錯標檢測保存間隔（每N個批次檢測一次）')
+    parser.add_argument('--enable_detection_visualization', action='store_true',
+                        help='是否保存錯標檢測視覺化結果')
 
     return parser.parse_args()
 
@@ -375,6 +388,51 @@ def main():
                         pred_logits_it = net_ema_it_cp(images).squeeze(axis=1)
                     pred_ema_masks = (torch.sigmoid(pred_logits_it) > 0.5).float()
                     pred_ema_np = pred_ema_masks.to(torch.uint8).cpu().numpy()
+                
+                # 錯標檢測功能（在標籤修正階段）
+                if args.enable_mislabel_detection and bi % args.detection_save_interval == 0:
+                    # 進行錯標檢測
+                    with torch.no_grad():
+                        # 獲取學生模型預測
+                        pred_logits_student = net(images).squeeze(axis=1)
+                        
+                        # 進行錯標檢測
+                        detection_results = mld.detect_mislabeled_coordinates(
+                            teacher_pred=pred_logits_it,
+                            student_pred=pred_logits_student,
+                            ns_masks=ns_masks,
+                            gt_masks=gt_masks,
+                            image_indices=None,  # 可以傳入實際的圖片檔名
+                            epoch=epoch,
+                            batch_idx=bi,
+                            save_dir=pdir,
+                            confidence_threshold=args.detection_confidence_threshold,
+                            agreement_threshold=args.detection_agreement_threshold
+                        )
+                        
+                        # 計算批次級別的檢測指標
+                        batch_metrics = mld.calculate_detection_metrics(detection_results)
+                        
+                        # 記錄到 wandb
+                        if args.batch_to_wandb and detection_results:
+                            wandb.log({
+                                'mislabel_detection/batch_precision': batch_metrics['batch_precision'],
+                                'mislabel_detection/batch_recall': batch_metrics['batch_recall'],
+                                'mislabel_detection/batch_f1': batch_metrics['batch_f1'],
+                                'mislabel_detection/batch_tp': batch_metrics['batch_tp'],
+                                'mislabel_detection/batch_fp': batch_metrics['batch_fp'],
+                                'mislabel_detection/batch_fn': batch_metrics['batch_fn'],
+                                'step': steps
+                            })
+                        
+                        # 輸出檢測統計到終端
+                        if detection_results:
+                            print(f"  錯標檢測 - Epoch {epoch+1}, Batch {bi}: "
+                                  f"Precision={batch_metrics['batch_precision']:.3f}, "
+                                  f"Recall={batch_metrics['batch_recall']:.3f}, "
+                                  f"F1={batch_metrics['batch_f1']:.3f}, "
+                                  f"TP/FP/FN={batch_metrics['batch_tp']}/{batch_metrics['batch_fp']}/{batch_metrics['batch_fn']}")
+                
                 # b - calculate ema prediction accs
                 ptr_gt_accs_mit, pbtr_dict_mit = evl.evaluate_batch(pred_ema_masks, gt_masks, net.n_classes, 
                                                                     ptr_gt_accs_mit, device, suffix='mit_ptrg', # previous training predictions
@@ -589,6 +647,22 @@ def main():
             if args.sc_sfs<=0:
                 tr_dict = evl.epoch_log_dict(tr_dict, ns_accs, batch_in_epoch, 
                                              net.n_classes, suffix='ns')
+            
+            # 匯總該 epoch 的錯標檢測結果
+            if args.enable_mislabel_detection:
+                detection_summary = mld.summarize_epoch_detection(
+                    detection_dir=os.path.join(pdir, 'mislabel_detection'),
+                    epoch=epoch,
+                    wandb_log=True
+                )
+                
+                if detection_summary:
+                    print(f"  Epoch {epoch+1} 錯標檢測匯總:")
+                    print(f"    精確度: {detection_summary['precision']:.4f}")
+                    print(f"    召回率: {detection_summary['recall']:.4f}") 
+                    print(f"    F1分數: {detection_summary['f1_score']:.4f}")
+                    print(f"    TP/FP/FN: {detection_summary['total_tp']}/{detection_summary['total_fp']}/{detection_summary['total_fn']}")
+                    print(f"    檢測圖片數: {detection_summary['num_images_detected']}")
         else:
             # record mit_tr_iou and do early learning detection
             tr_iou_mit.append(tr_dict[f'{wp}mit_tr_iou'].item())
@@ -622,6 +696,10 @@ def main():
                 n_back = epoch-fmid+1
                 wp=''   # delete baseline prefix
                 print(f"Correction starts! - After EPOCH {epoch+1} and resume from EPOCH {fmid}")
+                
+                # 如果啟用了錯標檢測，在開始修正時輸出提示
+                if args.enable_mislabel_detection:
+                    print(f"  錯標檢測已啟用，將在修正階段監控錯標檢測性能")
         
         
         # 6> Log train, validation, and test metrics to wandb
