@@ -103,6 +103,12 @@ def add_noise(mask):
 
 
 def insert_single_item_noise(mask, nst):
+    # ===== debug =====
+    # if np.sum(mask>0) == 0:
+    #     print("警告: mask 是空的, 無法加 noise")
+    #     return mask
+    # =================
+
     if nst=='shift':
         dst = shift_noise(mask)
     elif nst=='erosion':
@@ -111,8 +117,6 @@ def insert_single_item_noise(mask, nst):
         dst = dilate_noise(mask)
     elif nst=='rotation':
         dst = rotate_noise(mask)
-    elif nst=='remove':
-        dst = remove_noise(mask)
     else:
         raise ValueError('Given noise type is invalid!')
     return dst
@@ -204,6 +208,15 @@ if __name__ == '__main__':
                 for bi in range(n_mbd):
                     bind = bd_ilist[0]
                     org_mask = (gt==bind).astype(np.uint8)
+
+                    # ======== debug ========
+                    print("處理檔案:", fname)
+                    print("noise type:", nst)
+                    print("building index:", bind)
+                    print("org_mask shape:", org_mask.shape)
+                    print("org_mask 非零像素數:", np.sum(org_mask>0))
+                    # =======================
+
                     mask += insert_single_item_noise(org_mask,nst)
                     # remove current processed building id
                     bd_ilist.pop(0)

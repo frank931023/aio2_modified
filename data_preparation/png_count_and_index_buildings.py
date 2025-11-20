@@ -10,13 +10,15 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 # parent dir of data
-data_dir = 'path-to-massachusetts-dataset'
+data_dir = 'bananan_images'
 
 
 if __name__ == '__main__':
     # options
-    plt_show = True
-    save_ind = False
+    # plt_show = True
+    # save_ind = False
+    plt_show = False
+    save_ind = True
     assert plt_show+save_ind==1, 'Only allowed to choose one from showing and saving options.'
     
     # partition
