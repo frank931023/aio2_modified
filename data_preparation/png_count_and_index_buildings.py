@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 # parent dir of data
-data_dir = 'bananan_images'
+data_dir = 'Massachusetts/tiff_256'
 
 
 if __name__ == '__main__':
@@ -22,7 +22,7 @@ if __name__ == '__main__':
     assert plt_show+save_ind==1, 'Only allowed to choose one from showing and saving options.'
     
     # partition
-    partition = 'train'
+    partition = 'val'
     
     # directories
     img_dir = os.path.join(data_dir,partition,'data')
@@ -43,8 +43,14 @@ if __name__ == '__main__':
         ind_path = os.path.join(save_dir,fname)
         
         img = cv2.imread(img_path)
-        gt = cv2.imread(gt_path,0)
         
+        # Handle extension mismatch: data uses .tiff, seg uses .tif
+        gt_fname = fname.replace('.tiff', '.tif')
+        gt_path = os.path.join(gt_dir, gt_fname)
+        gt = cv2.imread(gt_path, 0)
+        # ensure binary
+        _, gt = cv2.threshold(gt, 127, 255, cv2.THRESH_BINARY)
+                
         # generate and save building indexes
         if save_ind:
             # find contours

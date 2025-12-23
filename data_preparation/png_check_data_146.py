@@ -73,16 +73,37 @@ if __name__ == '__main__':
             # fname = '22678930_15_25.png'   # train
             # read data
             img_path = os.path.join(img_dir,fname)
-            # Handle extension mismatch
-            gt_fname = fname.replace('.tiff', '.tif')
-            gt_path = os.path.join(gt_dir,gt_fname)
+            gt_path = os.path.join(gt_dir,fname)
             ind_path = os.path.join(ind_dir,fname)
             ns_path = os.path.join(ns_dir,fname)
-            
+            # print(img_path, ns_path)
             img = cv2.imread(img_path)
-            gt = (cv2.imread(gt_path,0) > 127).astype(np.int8)
-            inds = cv2.imread(ind_path,0)
-            ns = (cv2.imread(ns_path,0) > 0).astype(np.int8)
+            # gt = cv2.imread(gt_path,0).astype(np.int8)
+            # inds = cv2.imread(ind_path,0)
+            # ns = cv2.imread(ns_path,0).astype(np.int8)
+
+            # ===== Dubug ====
+            gt = cv2.imread(gt_path,0).astype(np.uint8)
+            inds = cv2.imread(ind_path,0).astype(np.uint8)
+            ns = cv2.imread(ns_path,0).astype(np.uint8)
+
+            gt = (gt > 0).astype(np.uint8)
+            ns = (ns > 0).astype(np.uint8)
+
+            # print("[Debug]", fname, np.unique(gt), np.unique(ns))
+            # ================
+
+
+            print("---- DEBUG START ----")
+            print("檔名:", fname)
+            print("GT unique:", np.unique(gt))
+            print("NS unique:", np.unique(ns))
+            print("Index max (建築物數):", inds.max())
+
+            # 計算 contours
+            contours, _ = cv2.findContours(ns.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+            print("NS 剩下建築數 nb_remain:", len(contours))
+            print("---- DEBUG END ----\n")
             
             if args.show_eg:
                 if i in seg_ids:
@@ -130,7 +151,7 @@ if __name__ == '__main__':
                 # find contours
                 contours, hierarchy = cv2.findContours(ns.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
                 nb_remain.append(len(contours))
-                
+
         # final results
         if args.data_acc:
             # for averaging single ones
@@ -165,6 +186,12 @@ if __name__ == '__main__':
             rm_rate = (nb_all-nb_remain+1e-8)/(nb_all+1e-8)
             acc_dict['rate_rm_s'][mi] = rm_rate.mean()
             acc_dict['rate_rm_a'][mi] = acc_dict['n_rm'][mi]/acc_dict['n_org'][mi]
+
+            print(f"\n=== MCR {mcr} 結果 ===")
+            print(f"iou_a (當輪): {acc_dict['iou_a'][mi]*100:.2f}")
+            print(f"oa_a  (當輪): {acc_dict['oa_a'][mi]*100:.2f}")
+            print(f"rate_rm_a (當輪): {acc_dict['rate_rm_a'][mi]*100:.2f}")
+            print("======================\n")
     
     # get mean results
     if args.data_acc:
@@ -173,11 +200,3 @@ if __name__ == '__main__':
                 accs = acc_dict[k]
                 print(f"{k}:{np.mean(accs)*100:0.2f}$\pm${np.std(accs)*100:0.2f}")
             
-        
-        
-        
-    
-    
-    
-        
-        

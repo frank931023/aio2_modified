@@ -10,6 +10,8 @@ import os
 import argparse
 import cv2
 import numpy as np
+import csv
+from tqdm import tqdm
 
 from random import seed, shuffle, randint, choice, random
     
@@ -20,7 +22,7 @@ def get_args():
     parser.add_argument('--data_dir', type=str, help='path-to-massachusetts-dataset',)
     parser.add_argument('--partition', type=str, choices=['train','test','val'], default='train')
     # saving directory
-    parser.add_argument('--save_dir_name', type=str, default='ns_seg_rm_3')  
+    parser.add_argument('--save_dir_name', type=str)  
     # noise insertion settings
     parser.add_argument('--ns_types', nargs="+", default=['remove'], #['shift','erosion','dilation','rotation'], 
                         help='Candidate noise types.') 
@@ -103,12 +105,6 @@ def add_noise(mask):
 
 
 def insert_single_item_noise(mask, nst):
-    # ===== debug =====
-    # if np.sum(mask>0) == 0:
-    #     print("警告: mask 是空的, 無法加 noise")
-    #     return mask
-    # =================
-
     if nst=='shift':
         dst = shift_noise(mask)
     elif nst=='erosion':
@@ -117,6 +113,8 @@ def insert_single_item_noise(mask, nst):
         dst = dilate_noise(mask)
     elif nst=='rotation':
         dst = rotate_noise(mask)
+    elif nst=='remove':
+        dst = remove_noise(mask)
     else:
         raise ValueError('Given noise type is invalid!')
     return dst
@@ -127,12 +125,12 @@ def count_and_index_building(gt):
     contours, hierarchy = cv2.findContours(gt,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
     
     # index buildings
-    mask = np.zeros(list(gt.shape)+[3], dtype=np.int_)
+    mask = np.zeros(list(gt.shape)+[3], dtype=np.int32)
     for ci, cnt in enumerate(contours):
         cv2.drawContours(mask, [cnt], 0, (ci+1,ci+1,ci+1), thickness=cv2.FILLED)
     # convert from RGB to gray
     mask = mask[:,:,0] # cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
-    mask = mask*gt  # to refine the shapes of objects in index file
+    mask = mask * (gt > 127).astype(np.int8)  # to refine the shapes of objects in index file
     return mask
 
 
@@ -168,8 +166,15 @@ if __name__ == '__main__':
     # candidates of numbers/types of label noise insertion into each patch
     nsts = np.arange(len(args.ns_types))+1
     
+    # log file
+    log_f = open(os.path.join(save_dir, 'noise_log.csv'), 'w', newline='')
+    log_writer = csv.writer(log_f)
+    log_writer.writerow(['filename', 'rate', 'details'])
+
     # 2 - starting inserting label noises one by one
-    for fname in fnames:
+    for fname in tqdm(fnames):
+        rec_treats = []
+        rec_rate = 0
         fpath = os.path.join(ind_dir,fname)
         gt = cv2.imread(fpath,0)
         # convert gt matrix to building indexes
@@ -192,6 +197,7 @@ if __name__ == '__main__':
             # 3> determine noise rate
             shuffle(nsrs)
             nsr = nsrs[0]
+            rec_rate = nsr
             
             # 4> insert label noises type by type
             portion_rest = 1.
@@ -204,19 +210,11 @@ if __name__ == '__main__':
                 portion_rest -= p
                 # number of buildings to modify
                 n_mbd = int(n_bd*nsr*p)
+                rec_treats.append(f"{nst}:{n_mbd}")
                 # insert label noises one building by one building
                 for bi in range(n_mbd):
                     bind = bd_ilist[0]
                     org_mask = (gt==bind).astype(np.uint8)
-
-                    # ======== debug ========
-                    print("處理檔案:", fname)
-                    print("noise type:", nst)
-                    print("building index:", bind)
-                    print("org_mask shape:", org_mask.shape)
-                    print("org_mask 非零像素數:", np.sum(org_mask>0))
-                    # =======================
-
                     mask += insert_single_item_noise(org_mask,nst)
                     # remove current processed building id
                     bd_ilist.pop(0)
@@ -236,6 +234,7 @@ if __name__ == '__main__':
             if add_bd:    
                 if (add_obj is not None) and random()>0.5:
                     mask += add_noise(add_obj)
+                    rec_treats.append("added_noise")
         
         # convert mask to binary map
         mask[mask>1] = 1
@@ -244,32 +243,10 @@ if __name__ == '__main__':
         psave = os.path.join(save_dir,fname)
         cv2.imwrite(psave, mask)
         
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+        log_writer.writerow([fname, rec_rate, "; ".join(rec_treats)])
+        
+    log_f.close()
+        
+
     
     

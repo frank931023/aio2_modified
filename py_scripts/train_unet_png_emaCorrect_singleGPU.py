@@ -31,7 +31,7 @@ def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks (with proposed AIO2)')
     # paths of input data
     parser.add_argument('--data_path', type=str, help='path_to_data')
-    parser.add_argument('--noise_dir_name', type=str, dest='ndn', default='seg_ns')
+    parser.add_argument('--noise_dir_name', type=str, dest='ndn', default='ns_seg')
     parser.add_argument('--monte_carlo_run', type=int, dest='mcr', default=1, help='Number of Monte Carlo runs')
     # saving directory
     parser.add_argument('--save_dir', type=str, default='Results')  
@@ -79,7 +79,7 @@ def get_args():
     parser.add_argument('--alpha_ep', type=float, default=0.99, 
                         help='Alpha used for ema model updating after each epoch')# other settings
     # early learning detection
-    parser.add_argument('--el_window_sizes', dest='el_wsizes', type=int, nargs="+", 
+    parser.add_argument('--el_window_sizes', dest='el_wsizes', type=int, nargs="+", default=[8, 16, 24],
                         help='List of sliding window sizes used for numerical gradient calculation')
     # sample correction
     parser.add_argument('--correct_base', dest='cbase', type=str, choices=['iter','epoch'], default='iter', 
@@ -193,8 +193,17 @@ def main():
     else:
         args.rs_fd = False
         tr_iou_mit = []
+
+        if args.el_wsizes is None:
+            raise ValueError("Error: Please specify sliding window sizes for early learning detection using --el_window_sizes!")
+
         ngs_dict = {b:[] for b in args.el_wsizes}
         detect_eps = np.zeros(len(args.el_wsizes))
+
+        print("=== ngs_dict 建立完成 ===")
+        for k, v in ngs_dict.items():
+            print(f"key={k} (type={type(k)}), value={v}")
+        print("=========================")
     
     # saving dirs
     # parent dir
