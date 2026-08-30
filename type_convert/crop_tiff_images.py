@@ -79,7 +79,7 @@ if __name__ == "__main__":
     # 您可以根據實際路徑修改這裡
     BASE_DIR = pathlib.Path(__file__).parent.parent 
     INPUT_DIR = BASE_DIR / "Massachusetts" / "tiff"
-    OUTPUT_DIR = BASE_DIR / "Massachusetts" / "tiff_256"
+    OUTPUT_DIR = BASE_DIR / "Massachusetts" / "tiff_256" / "val"
     
     print(f"Input Directory: {INPUT_DIR}")
     print(f"Output Directory: {OUTPUT_DIR}")

@@ -10,13 +10,11 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 # parent dir of data
-data_dir = 'Massachusetts/tiff_256'
+data_dir = 'D:/aio2_results_2/corn_dataset'
 
 
 if __name__ == '__main__':
     # options
-    # plt_show = True
-    # save_ind = False
     plt_show = False
     save_ind = True
     assert plt_show+save_ind==1, 'Only allowed to choose one from showing and saving options.'
@@ -34,23 +32,20 @@ if __name__ == '__main__':
     
     # get all file names
     fnames = os.listdir(img_dir)
+
+    print("i am here now.")
     
     # save index files for each gt
     for i,fname in enumerate(fnames):
+        print("i am processing:", i)
         # read data
         img_path = os.path.join(img_dir,fname)
         gt_path = os.path.join(gt_dir,fname)
         ind_path = os.path.join(save_dir,fname)
         
         img = cv2.imread(img_path)
+        gt = cv2.imread(gt_path,0)
         
-        # Handle extension mismatch: data uses .tiff, seg uses .tif
-        gt_fname = fname.replace('.tiff', '.tif')
-        gt_path = os.path.join(gt_dir, gt_fname)
-        gt = cv2.imread(gt_path, 0)
-        # ensure binary
-        _, gt = cv2.threshold(gt, 127, 255, cv2.THRESH_BINARY)
-                
         # generate and save building indexes
         if save_ind:
             # find contours

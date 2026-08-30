@@ -24,7 +24,7 @@ def get_args():
     # noise insertion settings
     parser.add_argument('--ns_types', nargs="+", default=['remove'], #['shift','erosion','dilation','rotation'], 
                         help='Candidate noise types.') 
-    parser.add_argument('--ns_rates',  nargs="+", type=float, default=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], #, 0.8],
+    parser.add_argument('--ns_rates',  nargs="+", type=float, default=[0, 0.1, 0.2, 0.3], #, 0.4, 0.5, 0.6, 0.8],
                         help='Candidate noise rates.')
     # generate index layer on the fly or directly load generated ones
     parser.add_argument('--generate_index', dest='gind', action='store_false')  

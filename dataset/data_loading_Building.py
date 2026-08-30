@@ -81,7 +81,7 @@ class BuildingDataset(Dataset):
     
     def __len__(self):
         return self.length
-    
+
     def __getitem__(self, index):
         fname = self.fnames[index]
         ipath = join(self.data_path, fname)
@@ -94,8 +94,18 @@ class BuildingDataset(Dataset):
         # load data
         img = cv2.imread(ipath)/255.0
         gt = cv2.imread(gpath,0).astype(float)
+
+        gt = gt * 255.0 if gt.max() <= 1 else gt # 我剛剛加入這行
+
+        gt = gt.astype(np.uint8) # 0414 改加入這個
+
         if self.load_ns:
             ns = cv2.imread(npath,0).astype(float)
+
+            ns = ns * 255.0 if ns.max() <= 1 else ns # 我隔天又加入這行
+
+            ns = ns.astype(np.uint8) # 0414 改加入這個
+
             if self.ons_path is not None:
                 ons = cv2.imread(onpath,0).astype(float)
 

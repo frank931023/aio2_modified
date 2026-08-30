@@ -130,7 +130,11 @@ def count_and_index_building(gt):
         cv2.drawContours(mask, [cnt], 0, (ci+1,ci+1,ci+1), thickness=cv2.FILLED)
     # convert from RGB to gray
     mask = mask[:,:,0] # cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
-    mask = mask * (gt > 127).astype(np.int8)  # to refine the shapes of objects in index file
+    # mask = mask * (gt > 127).astype(np.int8)  # to refine the shapes of objects in index file
+    
+    threshold = 127 if gt.max() > 1 else 0
+    mask = mask * (gt > threshold).astype(np.int8)
+    
     return mask
 
 
